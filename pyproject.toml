@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vocaldna-tts"
+version = "0.1.0"
+description = "Table-first Chinese TTS with a 578,895-entry pronunciation lexicon"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "LicenseRef-VocalDNA-TTS-Noncommercial-1.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "王大粘" }]
+dependencies = [
+  "cn2an>=0.5",
+  "ijson>=3.2.3",
+  "numpy>=1.24",
+  "pypinyin>=0.50",
+  "soundfile>=0.12",
+]
+
+[project.optional-dependencies]
+kokoro = ["kokoro>=0.8.2", "misaki[zh]>=0.8.2", "torch>=2.1"]
+dev = ["build>=1.2", "twine>=5"]
+
+[project.scripts]
+vocaldna = "vocaldna.cli:main"
+
+[project.urls]
+Repository = "https://github.com/superalp1985/VocalDNA-TTS"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vocaldna = ["data/*.gz", "data/*.json", "py.typed"]

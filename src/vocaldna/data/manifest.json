@@ -1,0 +1,11 @@
+{
+  "dataset": "VocalDNA Chinese pronunciation lexicon",
+  "entries": 578895,
+  "maintainer": "王大粘",
+  "sourceFile": "master_dict.json",
+  "sourceBytes": 102961808,
+  "sourceSha256": "6fb17f8c31bccc6e982e6fd7167968a8f9e172c7e52c7375dbb2674736007b42",
+  "packageFile": "master_dict.json.gz",
+  "packageBytes": 7543318,
+  "packageSha256": "ad2a5137f35842857d56f87cbf8357c1121e2b4e04014c8dfcd80faef42e30ec"
+}
