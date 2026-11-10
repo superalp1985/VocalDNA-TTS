@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import io
 import json
-import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import quote
 
 import numpy as np
 
@@ -43,7 +43,8 @@ def make_handler(pipeline):
 
         def do_GET(self):
             if self.path == "/health":
-                return self._send(200, {"ok": True, "engine": type(pipeline.engine).__name__})
+                engine = type(pipeline.engine).__name__ if pipeline.engine is not None else None
+                return self._send(200, {"ok": True, "engine": engine})
             return self._send(404, {"error": "not found"})
 
         def do_POST(self):
@@ -75,14 +76,18 @@ def make_handler(pipeline):
                             for token in tokens
                         ],
                     })
+                if pipeline.engine is None:
+                    return self._send(503, {"error": "no synthesis engine is configured"})
                 fame = FAME.from_mapping(data.get("fame"))
                 try:
                     speed = float(data.get("speed", 1.0))
                 except (TypeError, ValueError):
                     raise ValueError("speed must be a number") from None
-                voice = str(data.get("voice") or "zf_001")
-                if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", voice):
-                    raise ValueError("voice contains unsupported characters")
+                voice = data.get("voice")
+                if voice is not None and (
+                    not isinstance(voice, str) or not voice.strip() or not voice.isprintable()
+                ):
+                    raise ValueError("voice must be a nonempty printable string")
                 result = pipeline.synthesize(
                     text,
                     voice=voice,
@@ -93,11 +98,12 @@ def make_handler(pipeline):
                 import soundfile as sf
                 output = io.BytesIO()
                 sf.write(output, np.asarray(result.audio, dtype=np.float32), result.sample_rate, format="WAV")
+                voice_header = quote(result.voice, safe="")
                 self.send_response(200)
                 self.send_header("Content-Type", "audio/wav")
                 self.send_header("Content-Length", str(output.tell()))
                 self.send_header("X-Sample-Rate", str(result.sample_rate))
-                self.send_header("X-VocalDNA-Voice", result.voice)
+                self.send_header("X-VocalDNA-Voice", voice_header)
                 self.send_header("X-Content-Type-Options", "nosniff")
                 self.end_headers()
                 self.wfile.write(output.getvalue())

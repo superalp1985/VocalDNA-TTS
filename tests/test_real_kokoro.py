@@ -1,5 +1,4 @@
 import os
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -17,9 +16,10 @@ class RealKokoroTests(unittest.TestCase):
             engine=KokoroEngine(model_dir),
         )
 
-        output = pipeline.synthesize("会计。", voice="zf_001")
+        output = pipeline.synthesize("会计。")
 
         self.assertEqual(output.sample_rate, 24000)
+        self.assertEqual(output.voice, "zf_001")
         self.assertGreater(len(output.audio), 2400)
         self.assertTrue(np.isfinite(output.audio).all())
         self.assertEqual(output.metadata["tokens"][0]["pinyin"], ["kuai4", "ji4"])

@@ -23,8 +23,6 @@ class AudioResult:
 
 
 class SynthesisEngine(Protocol):
-    sample_rate: int
-
     def synthesize(
         self,
         text: str,
@@ -76,6 +74,7 @@ class KokoroEngine:
     """Optional local Kokoro adapter. Model files stay outside this repository."""
 
     sample_rate = 24000
+    default_voice = "zf_001"
     repo_id = "hexgrad/Kokoro-82M-v1.1-zh"
 
     def __init__(self, model_dir: str | Path | None = None, *, device: str | None = None):

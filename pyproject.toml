@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vocaldna-tts"
 version = "0.1.0"
-description = "Table-first Chinese TTS with a 578,895-entry pronunciation lexicon"
+description = "Engine-agnostic Chinese TTS enhancement with a 578,895-entry pronunciation lexicon"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "LicenseRef-VocalDNA-TTS-Noncommercial-1.0"

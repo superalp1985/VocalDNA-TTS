@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from importlib import import_module
 from pathlib import Path
 
 from .engine import KokoroEngine
@@ -14,10 +15,26 @@ def _table(args):
 
 
 def _pipeline(args):
-    return VocalDNA(
-        g2p=_table(args),
-        engine=KokoroEngine(getattr(args, "model_dir", None)),
-    )
+    return VocalDNA(g2p=_table(args), engine=args.engine)
+
+
+def _load_engine(spec, model_dir):
+    if spec == "kokoro" or (spec is None and model_dir is not None):
+        return KokoroEngine(model_dir)
+    if model_dir is not None:
+        raise ValueError("--model-dir is only supported by the Kokoro adapter")
+    if spec is None:
+        return None
+    module_name, _, factory_name = spec.partition(":")
+    if not all(part.isidentifier() for part in module_name.split(".")) or not factory_name.isidentifier():
+        raise ValueError("--engine must be 'kokoro' or a module:factory")
+    factory = getattr(import_module(module_name), factory_name)
+    if not callable(factory):
+        raise ValueError(f"engine factory is not callable: {spec}")
+    engine = factory()
+    if not callable(getattr(engine, "synthesize", None)):
+        raise ValueError(f"engine factory must return an object with synthesize(): {spec}")
+    return engine
 
 
 def _parser():
@@ -32,7 +49,7 @@ def _parser():
 
     synth = commands.add_parser("synthesize", help="合成 WAV 音频")
     synth.add_argument("text")
-    synth.add_argument("--voice", default="zf_001")
+    synth.add_argument("--voice", help="音色 ID，省略时由引擎决定")
     synth.add_argument("--speed", type=float, default=1.0)
     synth.add_argument("--model-dir")
     synth.add_argument("--lexicon")
@@ -45,6 +62,9 @@ def _parser():
     serve.add_argument("--model-dir")
     serve.add_argument("--lexicon")
     serve.set_defaults(handler=_run_server)
+
+    for command in (synth, serve):
+        command.add_argument("--engine", help="kokoro 或 Python 模块:工厂函数")
     return parser
 
 
@@ -80,12 +100,21 @@ def _run_synthesize(args):
 def _run_server(args):
     from .server import serve
 
+    pipeline = _pipeline(args)
     print(f"VocalDNA API listening on http://{args.host}:{args.port}")
-    serve(_pipeline(args), host=args.host, port=args.port)
+    serve(pipeline, host=args.host, port=args.port)
 
 
 def main():
-    args = _parser().parse_args()
+    parser = _parser()
+    args = parser.parse_args()
+    if args.command != "g2p":
+        if args.command == "synthesize" and args.engine is None and args.model_dir is None:
+            parser.error("synthesize requires --engine (or --model-dir for Kokoro)")
+        try:
+            args.engine = _load_engine(args.engine, args.model_dir)
+        except (ImportError, AttributeError, TypeError, ValueError) as error:
+            parser.error(f"could not load engine: {error}")
     args.handler(args)
 
 

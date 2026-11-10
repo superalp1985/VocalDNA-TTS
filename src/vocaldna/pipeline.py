@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import re
 import inspect
 import math
+import re
 import threading
 from dataclasses import dataclass, field
 from typing import Mapping
@@ -10,7 +10,7 @@ from typing import Mapping
 import numpy as np
 
 from .emotion import FAME
-from .engine import AudioResult, SynthesisEngine
+from .engine import SynthesisEngine
 from .g2p import G2PTable
 from .normalize import TextNormalizer
 from .scac import SCACController
@@ -35,7 +35,7 @@ class VocalDNA:
         self,
         *,
         g2p: G2PTable,
-        engine: SynthesisEngine,
+        engine: SynthesisEngine | None = None,
         normalizer: TextNormalizer | None = None,
         vedm: VEDM | None = None,
         scac: SCACController | None = None,
@@ -61,7 +61,7 @@ class VocalDNA:
         return parts
 
     def synthesize(
-        self, text, *, voice="zf_001", speed=1.0, fame=None, domain=None
+        self, text, *, voice=None, speed=1.0, fame=None, domain=None
     ) -> SynthesisOutput:
         with self._lock:
             return self._synthesize(text, voice=voice, speed=speed, fame=fame, domain=domain)
@@ -70,11 +70,15 @@ class VocalDNA:
         self,
         text: str,
         *,
-        voice: str = "zf_001",
+        voice: str | None = None,
         speed: float = 1.0,
         fame: FAME | Mapping[str, float] | None = None,
         domain: str | list[str] | None = None,
     ) -> SynthesisOutput:
+        if self.engine is None:
+            raise RuntimeError("no synthesis engine is configured")
+        if voice is None:
+            voice = getattr(self.engine, "default_voice", "default")
         normalized = self.normalizer.normalize(text)
         if not normalized or not any(char.isalnum() for char in normalized):
             raise ValueError("text must contain a pronounceable character")
@@ -149,12 +153,18 @@ class VocalDNA:
         )
 
     def _synthesize_engine(self, text, **kwargs):
-        signature = inspect.signature(self.engine.synthesize)
-        if "pronunciation_tokens" not in signature.parameters:
+        synthesize = self.engine.synthesize
+        try:
+            parameters = inspect.signature(synthesize).parameters
+        except (ValueError, TypeError):
+            return synthesize(text, **kwargs)
+        if "pronunciation_tokens" not in parameters and not any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+        ):
             kwargs.pop("pronunciation_tokens", None)
-        return self.engine.synthesize(text, **kwargs)
+        return synthesize(text, **kwargs)
 
-    def synthesize_stream(self, text, *, voice="zf_001", speed=1.0, fame=None, domain=None, prefetch=False):
+    def synthesize_stream(self, text, *, voice=None, speed=1.0, fame=None, domain=None, prefetch=False):
         return StreamingSynthesizer(self).stream(
             text,
             voice=voice,
